@@ -11,14 +11,14 @@ type Listener struct {
 	from, to string
 }
 
-func waitForConn(ln net.Listener, port string, p Pipe) {
+func waitForConn(ln net.Listener, addr string, p Pipe) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Printf("[error] accept failed: %s\n", err)
 		} else {
-			log.Printf("accepted new connection on %s\n", port)
-			p.Wait(conn, port)
+			log.Printf("accepted new connection on %s\n", addr)
+			p.Wait(conn, addr)
 			if err := <-p.receiveError; err != nil {
 				conn.Close()
 			}
@@ -26,19 +26,19 @@ func waitForConn(ln net.Listener, port string, p Pipe) {
 	}
 }
 
-func listen(port string, pipe Pipe, block bool) error {
-	if !strings.Contains(port, ":") {
-		port = ":" + port
+func listen(addr string, pipe Pipe, block bool) error {
+	if !strings.Contains(addr, ":") {
+		addr = ":" + addr
 	}
-	ln, err := net.Listen("tcp", port)
+	ln, err := net.Listen("tcp", addr)
 	if err != nil {
 		return err
 	}
-	log.Printf("Listening on %s\n", port)
+	log.Printf("Listening on %s\n", addr)
 	if block {
-		waitForConn(ln, port, pipe)
+		waitForConn(ln, addr, pipe)
 	} else {
-		go waitForConn(ln, port, pipe)
+		go waitForConn(ln, addr, pipe)
 	}
 	return nil
 }
