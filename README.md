@@ -25,6 +25,11 @@ $ tgc -L -q ${EXTERNAL_PORT} -p ${LOCAL_PORT}
 
 The remote node now has access to the local server on the LAN via `${LOCAL_PORT}`
 
+Additionally, a secure connection can be established between the Connect/Connect node and the Listen/Listen node by using the following options for both modes:
+- `ca`: CA of the connecting party, on the server side, provide the client CA; on the client side, provide the server CA. They can be the same CA
+- `crt`: x509 cert file signed by the CA provided to the remote node
+- `key`: key file
+
 ### Example
 
 Forward local port 8080 to a remote server on port 8000 via port 80. 

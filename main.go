@@ -20,10 +20,21 @@ func parseArgs() (*Listener, *Connector, error) {
 	connectArgs.StringVar(&connector.dst, "c", "", "the host and port of the Listen/Listen server")
 	connectArgs.IntVar(&connector.interval, "i", 5, "interval when (re)connecting to either host in seconds, must be positive")
 
+	clientCert := TLSCert{}
+	connectArgs.StringVar(&clientCert.ca, "ca", "", "certificate authority (used to signed the server cert) to encrypt the connection to the Listen/Listen server, connection will be unencrypted if not specified")
+	connectArgs.StringVar(&clientCert.crt, "crt", "", "client certificate signed by the CA provided to the server")
+	connectArgs.StringVar(&clientCert.key, "key", "", "client key file")
+
 	listener := &Listener{}
 	listenArgs := flag.NewFlagSet("listen", flag.ExitOnError)
 	listenArgs.StringVar(&listener.from, "p", "", "the port to listen on for actual client connection")
 	listenArgs.StringVar(&listener.to, "q", "", "the port to listen on for connection from the other Connect/Connect node")
+
+	serverCert := TLSCert{}
+	listenArgs.StringVar(&serverCert.ca, "ca", "", "certificate authority (used to sign the client cert) to encrypt the connection to the Connect/Connect client, connection will be unencrypted if not specified")
+	listenArgs.StringVar(&serverCert.crt, "crt", "", "server certificate signed by the CA provided to the client")
+	listenArgs.StringVar(&serverCert.key, "key", "", "server key file")
+
 	flag.Usage = func() {
 		modeArgs.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "For connect mode:\n")
@@ -43,6 +54,10 @@ func parseArgs() (*Listener, *Connector, error) {
 		if listener.from == "" || listener.to == "" {
 			return nil, nil, fmt.Errorf("no listen options")
 		}
+		var err error
+		if listener.tlsConfig, err = serverCert.CreateServerConfig(); err != nil {
+			return nil, nil, err
+		}
 		return listener, nil, nil
 	} else if connectMode {
 		connectArgs.Parse(os.Args[2:])
@@ -52,6 +67,13 @@ func parseArgs() (*Listener, *Connector, error) {
 		if connector.interval <= 0 {
 			return nil, nil, fmt.Errorf("delay must be a positive integer")
 		}
+		if clientCert.ca != "" {
+			var err error
+			if connector.tlsConfig, err = clientCert.CreateClientConfig(); err != nil {
+				return nil, nil, err
+			}
+		}
+
 		return nil, connector, nil
 	}
 	return nil, nil, fmt.Errorf("too many options")
