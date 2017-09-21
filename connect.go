@@ -12,6 +12,7 @@ type Connector struct {
 }
 
 func connect(addr string, p Pipe) {
+	p.addr = addr
 	for {
 		conn, err := net.Dial("tcp", addr)
 		if err != nil {
@@ -21,7 +22,7 @@ func connect(addr string, p Pipe) {
 			continue
 		}
 		log.Printf("connected for %s", addr)
-		p.Wait(conn, addr)
+		p.Wait(conn)
 		err = <-p.receiveError
 		conn.Close()
 	}

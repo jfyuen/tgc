@@ -18,7 +18,7 @@ func waitForConn(ln net.Listener, addr string, p Pipe) {
 			log.Printf("[error] accept failed: %s\n", err)
 		} else {
 			log.Printf("accepted new connection on %s\n", addr)
-			p.Wait(conn, addr)
+			p.Wait(conn)
 			if err := <-p.receiveError; err != nil {
 				conn.Close()
 			}
@@ -27,6 +27,7 @@ func waitForConn(ln net.Listener, addr string, p Pipe) {
 }
 
 func listen(addr string, pipe Pipe, block bool) error {
+	pipe.addr = addr
 	if !strings.Contains(addr, ":") {
 		addr = ":" + addr
 	}

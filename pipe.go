@@ -12,13 +12,14 @@ type Pipe struct {
 	err          chan error
 	receiveError chan error
 	sendError    chan error
+	addr         string
 }
 
-func (p Pipe) receive(r io.Reader, port string) {
+func (p Pipe) receive(r io.Reader) {
 	b := make([]byte, 4096)
 	for {
 		n, err := r.Read(b)
-		log.Printf("read %d on %s with err: %v\n", n, port, err)
+		log.Printf("read %d on %s with err: %v\n", n, p.addr, err)
 		if err != nil {
 			p.err <- err
 			if p.receiveError != nil {
@@ -34,15 +35,15 @@ func (p Pipe) receive(r io.Reader, port string) {
 	}
 }
 
-func (p Pipe) send(w io.Writer, port string) {
+func (p Pipe) send(w io.Writer) {
 
 	for {
 		select {
 		case data := <-p.from:
-			log.Printf("send %v bytes on %s\n", len(data), port)
+			log.Printf("send %v bytes on %s\n", len(data), p.addr)
 			buf := bytes.NewBuffer(data)
 			if _, err := io.Copy(w, buf); err != nil {
-				log.Printf("[error] could not write %v bytes on %s", len(data), port)
+				log.Printf("[error] could not write %v bytes on %s", len(data), p.addr)
 				p.from <- data
 				if p.sendError != nil {
 					p.sendError <- err
@@ -50,16 +51,16 @@ func (p Pipe) send(w io.Writer, port string) {
 				return
 			}
 		case err := <-p.err:
-			log.Printf("[error] received %v on %s", err, port)
+			log.Printf("[error] received %v on %s", err, p.addr)
 			return
 		}
 	}
 }
 
 // Wait will read data on connection and write back results
-func (p Pipe) Wait(rw io.ReadWriter, port string) {
-	go p.receive(rw, port)
-	go p.send(rw, port)
+func (p Pipe) Wait(rw io.ReadWriter) {
+	go p.receive(rw)
+	go p.send(rw)
 }
 
 // InitPipe creates a Pipe with some preinitialized channels
