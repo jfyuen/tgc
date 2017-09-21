@@ -16,13 +16,14 @@ func parseArgs() (*Listener, *Connector, error) {
 
 	connector := &Connector{}
 	connectArgs := flag.NewFlagSet("connect", flag.ExitOnError)
-	connectArgs.StringVar(&connector.src, "s", "", "The host and port of the local server")
-	connectArgs.StringVar(&connector.dst, "c", "", "The host and port of the Listen/Listen server")
+	connectArgs.StringVar(&connector.src, "s", "", "the host and port of the local server")
+	connectArgs.StringVar(&connector.dst, "c", "", "the host and port of the Listen/Listen server")
+	connectArgs.IntVar(&connector.interval, "i", 5, "interval when (re)connecting to either host in seconds, must be positive")
 
 	listener := &Listener{}
 	listenArgs := flag.NewFlagSet("listen", flag.ExitOnError)
-	listenArgs.StringVar(&listener.from, "p", "", "The port to listen on for actual client connection")
-	listenArgs.StringVar(&listener.to, "q", "", "The port to listen on for connection from the other Connect/Connect node")
+	listenArgs.StringVar(&listener.from, "p", "", "the port to listen on for actual client connection")
+	listenArgs.StringVar(&listener.to, "q", "", "the port to listen on for connection from the other Connect/Connect node")
 	flag.Usage = func() {
 		modeArgs.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "For connect mode:\n")
@@ -48,6 +49,9 @@ func parseArgs() (*Listener, *Connector, error) {
 		if connector.src == "" || connector.dst == "" {
 			return nil, nil, fmt.Errorf("no connect options")
 		}
+		if connector.interval <= 0 {
+			return nil, nil, fmt.Errorf("delay must be a positive integer")
+		}
 		return nil, connector, nil
 	}
 	return nil, nil, fmt.Errorf("too many options")
@@ -56,7 +60,9 @@ func parseArgs() (*Listener, *Connector, error) {
 func main() {
 	listener, connector, err := parseArgs()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, fmt.Sprintf("%v\n", err))
 		flag.Usage()
+		os.Exit(2)
 	}
 	if listener != nil {
 		if err := listener.Listen(); err != nil {

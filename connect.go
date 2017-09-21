@@ -9,15 +9,15 @@ import (
 // Connector opens 2 connections and forwards data from one to another
 type Connector struct {
 	src, dst string
+	interval int
 }
 
-func connect(p Pipe) {
+func connect(p Pipe, interval int) {
 	for {
 		conn, err := net.Dial("tcp", p.addr)
 		if err != nil {
-			wait := 5
-			log.Printf("[error] cannot connect to %s: %v, retrying in %v seconds\n", p.addr, err, wait)
-			time.Sleep(5 * time.Second)
+			log.Printf("[error] cannot connect to %s: %v, retrying in %v seconds\n", p.addr, err, interval)
+			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		}
 		log.Printf("connected for %s", p.addr)
@@ -31,6 +31,6 @@ func connect(p Pipe) {
 func (c Connector) Connect() {
 	fromCh := make(chan []byte)
 	toCh := make(chan []byte)
-	go connect(InitPipe(fromCh, toCh, c.dst))
-	connect(InitPipe(toCh, fromCh, c.src))
+	go connect(InitPipe(fromCh, toCh, c.dst), c.interval)
+	connect(InitPipe(toCh, fromCh, c.src), c.interval)
 }
