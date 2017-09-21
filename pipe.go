@@ -21,6 +21,7 @@ func (p Pipe) receive(r io.Reader) {
 		n, err := r.Read(b)
 		log.Printf("read %d on %s with err: %v\n", n, p.addr, err)
 		if err != nil {
+			log.Printf("[error] received %v on %s", err, p.addr)
 			p.err <- err
 			if p.receiveError != nil {
 				p.receiveError <- err
@@ -50,8 +51,7 @@ func (p Pipe) send(w io.Writer) {
 				}
 				return
 			}
-		case err := <-p.err:
-			log.Printf("[error] received %v on %s", err, p.addr)
+		case <-p.err:
 			return
 		}
 	}
