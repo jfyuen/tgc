@@ -11,13 +11,13 @@ type Listener struct {
 	from, to string
 }
 
-func waitForConn(ln net.Listener, addr string, p Pipe) {
+func waitForConn(ln net.Listener, p Pipe) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Printf("[error] accept failed: %s\n", err)
 		} else {
-			log.Printf("accepted new connection on %s\n", addr)
+			log.Printf("accepted new connection on %s\n", p.addr)
 			p.Wait(conn)
 			if err := <-p.receiveError; err != nil {
 				conn.Close()
@@ -26,8 +26,8 @@ func waitForConn(ln net.Listener, addr string, p Pipe) {
 	}
 }
 
-func listen(addr string, pipe Pipe, block bool) error {
-	pipe.addr = addr
+func listen(p Pipe, block bool) error {
+	addr := p.addr
 	if !strings.Contains(addr, ":") {
 		addr = ":" + addr
 	}
@@ -37,9 +37,9 @@ func listen(addr string, pipe Pipe, block bool) error {
 	}
 	log.Printf("Listening on %s\n", addr)
 	if block {
-		waitForConn(ln, addr, pipe)
+		waitForConn(ln, p)
 	} else {
-		go waitForConn(ln, addr, pipe)
+		go waitForConn(ln, p)
 	}
 	return nil
 }
@@ -48,10 +48,10 @@ func listen(addr string, pipe Pipe, block bool) error {
 func (l Listener) Listen() error {
 	fromCh := make(chan []byte)
 	toCh := make(chan []byte)
-	if err := listen(l.from, InitPipe(fromCh, toCh), false); err != nil {
+	if err := listen(InitPipe(fromCh, toCh, l.from), false); err != nil {
 		return err
 	}
-	if err := listen(l.to, InitPipe(toCh, fromCh), true); err != nil {
+	if err := listen(InitPipe(toCh, fromCh, l.to), true); err != nil {
 		return err
 	}
 	return nil

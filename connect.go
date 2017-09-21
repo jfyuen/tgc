@@ -11,17 +11,16 @@ type Connector struct {
 	src, dst string
 }
 
-func connect(addr string, p Pipe) {
-	p.addr = addr
+func connect(p Pipe) {
 	for {
-		conn, err := net.Dial("tcp", addr)
+		conn, err := net.Dial("tcp", p.addr)
 		if err != nil {
 			wait := 5
-			log.Printf("[error] cannot connect to %s: %v, retrying in %v seconds\n", addr, err, wait)
+			log.Printf("[error] cannot connect to %s: %v, retrying in %v seconds\n", p.addr, err, wait)
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		log.Printf("connected for %s", addr)
+		log.Printf("connected for %s", p.addr)
 		p.Wait(conn)
 		err = <-p.receiveError
 		conn.Close()
@@ -32,6 +31,6 @@ func connect(addr string, p Pipe) {
 func (c Connector) Connect() {
 	fromCh := make(chan []byte)
 	toCh := make(chan []byte)
-	go connect(c.dst, InitPipe(fromCh, toCh))
-	connect(c.src, InitPipe(toCh, fromCh))
+	go connect(InitPipe(fromCh, toCh, c.dst))
+	connect(InitPipe(toCh, fromCh, c.src))
 }

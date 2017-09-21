@@ -64,6 +64,6 @@ func (p Pipe) Wait(rw io.ReadWriter) {
 }
 
 // InitPipe creates a Pipe with some preinitialized channels
-func InitPipe(from, to chan []byte) Pipe {
-	return Pipe{from: from, to: to, err: make(chan error), receiveError: make(chan error)}
+func InitPipe(from, to chan []byte, addr string) Pipe {
+	return Pipe{from: from, to: to, err: make(chan error), receiveError: make(chan error), addr: addr}
 }
