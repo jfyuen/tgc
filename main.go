@@ -55,8 +55,10 @@ func parseArgs() (*Listener, *Connector, error) {
 			return nil, nil, fmt.Errorf("no listen options")
 		}
 		var err error
-		if listener.tlsConfig, err = serverCert.CreateServerConfig(); err != nil {
-			return nil, nil, err
+		if serverCert.ca != "" {
+			if listener.tlsConfig, err = serverCert.CreateServerConfig(); err != nil {
+				return nil, nil, err
+			}
 		}
 		return listener, nil, nil
 	} else if connectMode {
