@@ -2,53 +2,56 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"testing"
 	"time"
 )
 
 func TestPipeReceive(t *testing.T) {
-	fromCh := make(chan []byte)
-	toCh := make(chan []byte)
-	p := InitPipe(fromCh, toCh, "test_conn")
+	fromCh := make(chan Message)
+	toCh := make(chan Message)
+	p := OutNode{from: fromCh, to: toCh, err: make(chan error), addr: "test_conn"}
+	errCh := make(chan error)
 
 	var b bytes.Buffer
-	go p.receive(&b)
+	go p.receive(&b, errCh)
 	hello := "hello"
-	b.Write([]byte(hello))
-	delay := .1
-	timer := time.NewTimer(time.Millisecond * time.Duration(500))
+	_, err := b.Write([]byte(hello))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	delay := time.Duration(100) * time.Millisecond
+	timer := time.NewTimer(delay)
 
 	select {
 	case e := <-toCh:
-		s := string(e)
+		s := string(e.payload)
 		if s != hello {
 			t.Errorf("received wrong data: %v vs %v", hello, s)
 		}
 	case <-timer.C:
-		t.Errorf("data not received after %v ms", delay)
+		t.Errorf("data not received after %v", delay)
+	case err := <-errCh:
+		t.Errorf("received unexpected error %v", err)
 	}
 }
 
-func TestSendReceive(t *testing.T) {
-	fromCh := make(chan []byte)
-	toCh := make(chan []byte)
-	p := InitPipe(fromCh, toCh, "test_conn")
+func TestPipeSend(t *testing.T) {
+	fromCh := make(chan Message)
+	toCh := make(chan Message)
+	errCh := make(chan error)
+	p := OutNode{from: fromCh, to: toCh, err: make(chan error), addr: "test_conn"}
 
-	var b bytes.Buffer
-	go p.send(&b)
 	hello := "hello"
-	fromCh <- []byte(hello)
-	buf := make([]byte, 10)
-	n, err := b.Read(buf)
-
-	if err != nil && err != io.EOF {
-		t.Fatal(err)
-	}
-	if n == 0 {
+	b := bytes.Buffer{}
+	go p.send(&b, errCh)
+	fromCh <- NewMessage([]byte(hello))
+	time.Sleep(time.Millisecond * 100)
+	received := b.Bytes()
+	if len(received) == 0 {
 		t.Fatal("no data received")
 	}
-	s := string(buf[:n])
+	s := string(received)
 	if s != hello {
 		t.Errorf("received wrong data: %v vs %v", hello, s)
 	}

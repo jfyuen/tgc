@@ -7,47 +7,85 @@ import (
 )
 
 // Pipe reads and writes on a connection, results are sent over channels
-type Pipe struct {
-	from, to     chan []byte
-	err          chan error
-	receiveError chan error
-	sendError    chan error
-	addr         string
+type Pipe interface {
+	Wait(rw io.ReadWriter, onError chan<- error)
+	receive(r io.Reader, onError chan<- error)
+	send(w io.Writer, onError chan<- error)
+	Addr() string
 }
 
-func (p Pipe) receive(r io.Reader) {
+// Node represents a Pipe connected to an inside or outside service
+type Node struct {
+	from, to chan Message // In/Out messages
+	err      chan error   // Notify the other side of the channel that an error occured
+	addr     string       // Where the Node is connected
+}
+
+// OutNode represents a Pipe connected to an outside service
+type OutNode Node
+
+// Addr where the Pipe is connected to
+func (p OutNode) Addr() string {
+	return p.addr
+}
+
+func (p OutNode) receive(r io.Reader, onError chan<- error) {
 	b := make([]byte, 4096)
+	lastMessageEmptyEOF := true
 	for {
 		n, err := r.Read(b)
-		log.Printf("read %d on %s with err: %v\n", n, p.addr, err)
+		if err != nil {
+			select {
+			case <-p.err:
+				return
+			default:
+				break
+			}
+		}
+		log.Printf("read %v bytes on %s with err: %v\n", n, p.addr, err)
 		if err != nil {
 			log.Printf("[error] received %v on %s", err, p.addr)
+			if !lastMessageEmptyEOF {
+				msg := NewMessage([]byte{})
+				msg.header.eof = true
+				lastMessageEmptyEOF = true
+				p.to <- msg
+			}
 			p.err <- err
-			if p.receiveError != nil {
-				p.receiveError <- err
+			if onError != nil {
+				onError <- err
 			}
 			return
 		}
 		if n > 0 {
 			data := make([]byte, n)
 			copy(data, b[:n])
-			p.to <- data
+			p.to <- NewMessage(data)
+			lastMessageEmptyEOF = false
 		}
 	}
 }
 
-func (p Pipe) send(w io.Writer) {
-
+func (p OutNode) send(w io.Writer, onError chan<- error) {
 	for {
 		select {
-		case data := <-p.from:
-			log.Printf("send %v bytes on %s\n", len(data), p.addr)
+		case msg := <-p.from:
+			data := msg.payload
+			log.Printf("send %v bytes on %s from message with size %v\n", len(data), p.addr, msg.header.size)
 			buf := bytes.NewBuffer(data)
 			if _, err := io.Copy(w, buf); err != nil {
 				log.Printf("[error] could not write %v bytes on %s", len(data), p.addr)
-				p.from <- data
-				if p.sendError != nil {
-					p.sendError <- err
+				p.err <- err
+				if onError != nil {
+					onError <- err
+				}
+				return
+			}
+			if msg.EOF() {
+				err := io.EOF
+				p.err <- err
+				if onError != nil {
+					onError <- err
 				}
 				return
 			}
@@ -58,12 +96,58 @@ func (p Pipe) send(w io.Writer) {
 }
 
 // Wait will read data on connection and write back results
-func (p Pipe) Wait(rw io.ReadWriter) {
-	go p.receive(rw)
-	go p.send(rw)
+func (p OutNode) Wait(rw io.ReadWriter, onError chan<- error) {
+	go p.receive(rw, onError)
+	go p.send(rw, onError)
 }
 
-// InitPipe creates a Pipe with some preinitialized channels
-func InitPipe(from, to chan []byte, addr string) Pipe {
-	return Pipe{from: from, to: to, err: make(chan error), receiveError: make(chan error), addr: addr}
+// InNode represents a Pipe connected to another InNode, with custom messages
+type InNode Node
+
+// Addr where the Pipe is connected to
+func (p InNode) Addr() string {
+	return p.addr
+}
+
+func (p InNode) receive(r io.Reader, onError chan<- error) {
+	for {
+		// log.Printf("reading new message on %v from in Node\n", p.addr)
+		msg := Message{}
+		n, err := msg.ReadFrom(r)
+		log.Printf("read message of %v bytes on %s with err: %v\n", n, p.addr, err)
+		if err != nil {
+			log.Printf("[error] received %v on %s", err, p.addr)
+			p.err <- err
+			if onError != nil {
+				onError <- err
+			}
+			return
+		}
+		p.to <- msg
+	}
+}
+
+func (p InNode) send(w io.Writer, onError chan<- error) {
+	for {
+		select {
+		case msg := <-p.from:
+			log.Printf("send message %v bytes on %s\n", msg.Size(), p.addr)
+			if n, err := msg.WriteTo(w); err != nil {
+				log.Printf("[error] could not write %v bytes on %s", n, p.addr)
+				p.from <- msg
+				if onError != nil {
+					onError <- err
+				}
+				return
+			}
+		case <-p.err:
+			return
+		}
+	}
+}
+
+// Wait will read data on connection and write back results
+func (p InNode) Wait(rw io.ReadWriter, onError chan<- error) {
+	go p.receive(rw, onError)
+	go p.send(rw, onError)
 }

@@ -14,23 +14,28 @@ type Listener struct {
 	tlsConfig *tls.Config
 }
 
-func waitForConn(ln net.Listener, p Pipe) {
+func waitForConn(ln net.Listener, fromCh, toCh chan Message, useMessage bool) {
 	for {
+		onError := make(chan error)
+		var p Pipe
+		if useMessage {
+			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: ln.Addr().String()}
+		} else {
+			p = OutNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: ln.Addr().String()}
+		}
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Printf("[error] accept failed: %s\n", err)
 		} else {
-			log.Printf("accepted new connection on %s\n", p.addr)
-			p.Wait(conn)
-			if err := <-p.receiveError; err != nil {
-				conn.Close()
-			}
+			log.Printf("accepted new connection on %s\n", p.Addr())
+			p.Wait(conn, onError)
+			<-onError
+			conn.Close()
 		}
 	}
 }
 
-func listen(p Pipe, config *tls.Config, block bool) error {
-	addr := p.addr
+func listen(fromCh, toCh chan Message, config *tls.Config, addr string, useMessage bool) error {
 	if !strings.Contains(addr, ":") {
 		addr = ":" + addr
 	}
@@ -49,22 +54,22 @@ func listen(p Pipe, config *tls.Config, block bool) error {
 		msg = "securely " + msg
 	}
 	log.Printf(msg)
-	if block {
-		waitForConn(ln, p)
+	if useMessage {
+		waitForConn(ln, fromCh, toCh, useMessage)
 	} else {
-		go waitForConn(ln, p)
+		go waitForConn(ln, fromCh, toCh, useMessage)
 	}
 	return nil
 }
 
 // Listen on two ports and creates a custom Pipe between them
 func (l Listener) Listen() error {
-	fromCh := make(chan []byte)
-	toCh := make(chan []byte)
-	if err := listen(InitPipe(fromCh, toCh, l.from), nil, false); err != nil {
+	fromCh := make(chan Message)
+	toCh := make(chan Message)
+	if err := listen(fromCh, toCh, nil, l.from, false); err != nil {
 		return err
 	}
-	if err := listen(InitPipe(toCh, fromCh, l.to), l.tlsConfig, true); err != nil {
+	if err := listen(toCh, fromCh, l.tlsConfig, l.to, true); err != nil {
 		return err
 	}
 	return nil

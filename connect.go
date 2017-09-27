@@ -15,35 +15,42 @@ type Connector struct {
 	tlsConfig *tls.Config
 }
 
-func connect(p Pipe, interval int, config *tls.Config) {
+func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr string, useMessage bool) {
+	onError := make(chan error)
 	for {
 		var conn net.Conn
 		var err error
 		if config != nil {
-			conn, err = tls.Dial("tcp", p.addr, config)
+			conn, err = tls.Dial("tcp", addr, config)
 		} else {
-			conn, err = net.Dial("tcp", p.addr)
+			conn, err = net.Dial("tcp", addr)
 		}
 		if err != nil {
-			log.Printf("[error] cannot connect to %s: %v, retrying in %v seconds\n", p.addr, err, interval)
+			log.Printf("[error] cannot connect to %s: %v, retrying in %v seconds\n", addr, err, interval)
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		}
-		msg := fmt.Sprintf("connected to %s\n", p.addr)
+		msg := fmt.Sprintf("connected to %s\n", addr)
 		if config != nil {
 			msg = "securely " + msg
 		}
 		log.Print(msg)
-		p.Wait(conn)
-		err = <-p.receiveError
+		var p Pipe
+		if useMessage {
+			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
+		} else {
+			p = OutNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
+		}
+		p.Wait(conn, onError)
+		<-onError
 		conn.Close()
 	}
 }
 
 // Connect the two destinations using a custom Pipe
 func (c Connector) Connect() {
-	fromCh := make(chan []byte)
-	toCh := make(chan []byte)
-	go connect(InitPipe(fromCh, toCh, c.dst), c.interval, c.tlsConfig)
-	connect(InitPipe(toCh, fromCh, c.src), c.interval, nil)
+	fromCh := make(chan Message)
+	toCh := make(chan Message)
+	go connect(fromCh, toCh, c.interval, c.tlsConfig, c.dst, true)
+	connect(toCh, fromCh, c.interval, nil, c.src, false)
 }
