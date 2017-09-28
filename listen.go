@@ -14,11 +14,11 @@ type Listener struct {
 	tlsConfig *tls.Config
 }
 
-func waitForConn(ln net.Listener, fromCh, toCh chan Message, useMessage bool) {
+func waitForConn(ln net.Listener, fromCh, toCh chan Message, isInNode bool) {
 	for {
 		onError := make(chan error)
 		var p Pipe
-		if useMessage {
+		if isInNode {
 			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: ln.Addr().String()}
 		} else {
 			p = OutNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: ln.Addr().String()}
@@ -35,7 +35,7 @@ func waitForConn(ln net.Listener, fromCh, toCh chan Message, useMessage bool) {
 	}
 }
 
-func listen(fromCh, toCh chan Message, config *tls.Config, addr string, useMessage bool) error {
+func listen(fromCh, toCh chan Message, config *tls.Config, addr string, isInNode bool) error {
 	if !strings.Contains(addr, ":") {
 		addr = ":" + addr
 	}
@@ -54,10 +54,10 @@ func listen(fromCh, toCh chan Message, config *tls.Config, addr string, useMessa
 		msg = "securely " + msg
 	}
 	log.Printf(msg)
-	if useMessage {
-		waitForConn(ln, fromCh, toCh, useMessage)
+	if isInNode {
+		waitForConn(ln, fromCh, toCh, isInNode)
 	} else {
-		go waitForConn(ln, fromCh, toCh, useMessage)
+		go waitForConn(ln, fromCh, toCh, isInNode)
 	}
 	return nil
 }

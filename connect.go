@@ -15,7 +15,7 @@ type Connector struct {
 	tlsConfig *tls.Config
 }
 
-func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr string, useMessage bool) {
+func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr string, isInNode bool) {
 	onError := make(chan error)
 	for {
 		var conn net.Conn
@@ -36,7 +36,7 @@ func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr s
 		}
 		log.Print(msg)
 		var p Pipe
-		if useMessage {
+		if isInNode {
 			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
 		} else {
 			p = OutNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
