@@ -31,7 +31,7 @@ func TestMessageWriteTo(t *testing.T) {
 		t.Errorf("expected size %v, got %v", len(data), size)
 	}
 
-	payload := b[len(b)-len(data) : len(b)]
+	payload := b[len(b)-len(data):]
 	if string(data) != string(payload) {
 		t.Errorf("expected []bytes %v, got %v", data, payload)
 	}
@@ -42,7 +42,7 @@ func TestMessageReadFrom(t *testing.T) {
 	r := bytes.NewReader(data)
 	msg := Message{}
 	msg.ReadFrom(r)
-	if string(data[int16(len(data))-msg.header.size:len(data)]) != string(msg.payload) {
+	if string(data[int16(len(data))-msg.header.size:]) != string(msg.payload) {
 		t.Errorf("expected []bytes %v, got %v", data, msg.payload)
 	}
 }

@@ -37,9 +37,9 @@ func parseArgs() (*Listener, *Connector, error) {
 
 	flag.Usage = func() {
 		modeArgs.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "For connect mode:\n")
+		fmt.Fprintln(os.Stderr, "For connect mode:")
 		connectArgs.PrintDefaults()
-		fmt.Fprintf(os.Stderr, "For listen mode:\n")
+		fmt.Fprintln(os.Stderr, "For listen mode:")
 		listenArgs.PrintDefaults()
 
 	}
