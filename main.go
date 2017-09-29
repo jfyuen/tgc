@@ -43,8 +43,9 @@ func parseArgs() (*Listener, *Connector, error) {
 		listenArgs.PrintDefaults()
 
 	}
-
-	modeArgs.Parse(os.Args[1:2])
+	if len(os.Args) >= 2 {
+		modeArgs.Parse(os.Args[1:2])
+	}
 	if !connectMode && !listenMode {
 		return nil, nil, fmt.Errorf("no options")
 	}
