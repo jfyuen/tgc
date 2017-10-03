@@ -11,7 +11,6 @@ type Pipe interface {
 	Wait(rw io.ReadWriter, onError chan<- error)
 	receive(r io.Reader, onError chan<- error)
 	send(w io.Writer, onError chan<- error)
-	Addr() string
 }
 
 // Node represents a Pipe connected to an inside or outside service
@@ -23,11 +22,6 @@ type Node struct {
 
 // OutNode represents a Pipe connected to an outside service
 type OutNode Node
-
-// Addr where the Pipe is connected to
-func (p OutNode) Addr() string {
-	return p.addr
-}
 
 func (p OutNode) receive(r io.Reader, onError chan<- error) {
 	b := make([]byte, 4096)
@@ -103,11 +97,6 @@ func (p OutNode) Wait(rw io.ReadWriter, onError chan<- error) {
 
 // InNode represents a Pipe connected to another InNode, with custom messages
 type InNode Node
-
-// Addr where the Pipe is connected to
-func (p InNode) Addr() string {
-	return p.addr
-}
 
 func (p InNode) receive(r io.Reader, onError chan<- error) {
 	for {

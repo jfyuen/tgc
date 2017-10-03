@@ -15,11 +15,12 @@ type Listener struct {
 }
 
 func waitForConn(ln net.Listener, fromCh, toCh chan Message, isInNode bool) {
+	addr := ln.Addr().String()
 	for {
 		onError := make(chan error)
 		var p Pipe
 		if isInNode {
-			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: ln.Addr().String()}
+			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
 		} else {
 			p = OutNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: ln.Addr().String()}
 		}
@@ -27,7 +28,7 @@ func waitForConn(ln net.Listener, fromCh, toCh chan Message, isInNode bool) {
 		if err != nil {
 			log.Printf("[error] accept failed: %s\n", err)
 		} else {
-			log.Printf("accepted new connection on %s\n", p.Addr())
+			log.Printf("accepted new connection on %s\n", addr)
 			p.Wait(conn, onError)
 			<-onError
 			conn.Close()
