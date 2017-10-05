@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"log"
 	"net"
 	"time"
 )
@@ -26,7 +25,7 @@ func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr s
 			conn, err = net.Dial("tcp", addr)
 		}
 		if err != nil {
-			log.Printf("[error] cannot connect to %s: %v, retrying in %v seconds\n", addr, err, interval)
+			errorLog.Printf("cannot connect to %s: %v, retrying in %v seconds\n", addr, err, interval)
 			time.Sleep(time.Duration(interval) * time.Second)
 			continue
 		}
@@ -34,7 +33,7 @@ func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr s
 		if config != nil {
 			msg = "securely " + msg
 		}
-		log.Print(msg)
+		debugLog.Print(msg)
 		var p Pipe
 		if isInNode {
 			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}

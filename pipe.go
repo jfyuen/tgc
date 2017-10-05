@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"io"
-	"log"
 )
 
 // Pipe reads and writes on a connection, results are sent over channels
@@ -36,9 +35,11 @@ func (p OutNode) receive(r io.Reader, onError chan<- error) {
 				break
 			}
 		}
-		log.Printf("read %v bytes on %s with err: %v\n", n, p.addr, err)
+		debugLog.Printf("read %v bytes on %s with err: %v\n", n, p.addr, err)
 		if err != nil {
-			log.Printf("[error] received %v on %s", err, p.addr)
+			if err != io.EOF {
+				errorLog.Printf("received %v on %s", err, p.addr)
+			}
 			if !lastMessageEmptyEOF {
 				msg := NewMessage([]byte{})
 				msg.header.eof = true
@@ -65,10 +66,10 @@ func (p OutNode) send(w io.Writer, onError chan<- error) {
 		select {
 		case msg := <-p.from:
 			data := msg.payload
-			log.Printf("send %v bytes on %s from message with size %v\n", len(data), p.addr, msg.header.size)
+			debugLog.Printf("send %v bytes on %s from message with size %v\n", len(data), p.addr, msg.header.size)
 			buf := bytes.NewBuffer(data)
 			if _, err := io.Copy(w, buf); err != nil {
-				log.Printf("[error] could not write %v bytes on %s", len(data), p.addr)
+				errorLog.Printf("could not write %v bytes on %s", len(data), p.addr)
 				p.err <- err
 				if onError != nil {
 					onError <- err
@@ -100,12 +101,13 @@ type InNode Node
 
 func (p InNode) receive(r io.Reader, onError chan<- error) {
 	for {
-		// log.Printf("reading new message on %v from in Node\n", p.addr)
 		msg := Message{}
 		n, err := msg.ReadFrom(r)
-		log.Printf("read message of %v bytes on %s with err: %v\n", n, p.addr, err)
+		debugLog.Printf("read message of %v bytes on %s with err: %v\n", n, p.addr, err)
 		if err != nil {
-			log.Printf("[error] received %v on %s", err, p.addr)
+			if err != io.EOF {
+				errorLog.Printf("received %v on %s", err, p.addr)
+			}
 			p.err <- err
 			if onError != nil {
 				onError <- err
@@ -120,9 +122,9 @@ func (p InNode) send(w io.Writer, onError chan<- error) {
 	for {
 		select {
 		case msg := <-p.from:
-			log.Printf("send message %v bytes on %s\n", msg.Size(), p.addr)
+			debugLog.Printf("send message %v bytes on %s\n", msg.Size(), p.addr)
 			if n, err := msg.WriteTo(w); err != nil {
-				log.Printf("[error] could not write %v bytes on %s", n, p.addr)
+				errorLog.Printf("could not write %v bytes on %s", n, p.addr)
 				p.from <- msg
 				if onError != nil {
 					onError <- err

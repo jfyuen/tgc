@@ -26,9 +26,9 @@ func waitForConn(ln net.Listener, fromCh, toCh chan Message, isInNode bool) {
 		}
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Printf("[error] accept failed: %s\n", err)
+			errorLog.Printf("accept failed: %s\n", err)
 		} else {
-			log.Printf("accepted new connection on %s\n", addr)
+			debugLog.Printf("accepted new connection on %s\n", addr)
 			p.Wait(conn, onError)
 			<-onError
 			conn.Close()
