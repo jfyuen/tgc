@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/gob"
 	"testing"
 	"time"
 )
@@ -27,8 +28,8 @@ func TestPipeReceive(t *testing.T) {
 
 	select {
 	case msg := <-toCh:
-		if !bytes.Equal(msg.payload, hello) {
-			t.Errorf("received wrong data: %v vs %v", hello, msg.payload)
+		if !bytes.Equal(msg.Payload, hello) {
+			t.Errorf("received wrong data: %v vs %v", hello, msg.Payload)
 		}
 	case <-timer.C:
 		t.Errorf("data not received after %v", delay)
@@ -45,16 +46,15 @@ func TestPipeSend(t *testing.T) {
 
 	b := bytes.Buffer{}
 	go p.send(&b, errCh)
-	msg := NewMessage([]byte("hello"))
-	msg.header.eof = true
+	msg := Message{Payload: []byte("hello"), EOF: true}
 	fromCh <- msg
 	<-p.err
 	received := b.Bytes()
 	if len(received) == 0 {
 		t.Fatal("no data received")
 	}
-	if !bytes.Equal(received, msg.payload) {
-		t.Errorf("received wrong data: %v vs %v", msg.payload, received)
+	if !bytes.Equal(received, msg.Payload) {
+		t.Errorf("received wrong data: %v vs %v", msg.Payload, received)
 	}
 }
 
@@ -69,13 +69,15 @@ func TestInOutNode(t *testing.T) {
 	inErrCh := make(chan error)
 	pIn := InNode{from: toCh, to: fromCh, err: make(chan error), addr: "in_conn"}
 	inRW := bytes.Buffer{}
-	msg := NewMessage([]byte("hello"))
-	msg.header.eof = true
-	msg.WriteTo(&inRW)
+	msg := Message{Payload: []byte("hello"), EOF: true}
+	encoder := gob.NewEncoder(&inRW)
+	if err := encoder.Encode(msg); err != nil {
+		t.Fatalf("failed encoding message with %v", err)
+	}
 	pIn.Wait(&inRW, inErrCh)
 	time.Sleep(time.Millisecond * 100)
 	b := outRW.Bytes()
-	if !bytes.Equal(b, msg.payload) {
-		t.Errorf("sent message %v and received message %v are different", msg.payload, b)
+	if !bytes.Equal(b, msg.Payload) {
+		t.Errorf("sent message %v and received message %v are different", msg.Payload, b)
 	}
 }

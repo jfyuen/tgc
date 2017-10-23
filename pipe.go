@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/gob"
 	"io"
 )
 
@@ -41,8 +42,7 @@ func (p OutNode) receive(r io.Reader, onError chan<- error) {
 				errorLog.Printf("received %v on %s", err, p.addr)
 			}
 			if !lastMessageEmptyEOF {
-				msg := NewMessage([]byte{})
-				msg.header.eof = true
+				msg := Message{Payload: []byte{}, EOF: true}
 				lastMessageEmptyEOF = true
 				p.to <- msg
 			}
@@ -55,7 +55,7 @@ func (p OutNode) receive(r io.Reader, onError chan<- error) {
 		if n > 0 {
 			data := make([]byte, n)
 			copy(data, b[:n])
-			p.to <- NewMessage(data)
+			p.to <- Message{Payload: data}
 			lastMessageEmptyEOF = false
 		}
 	}
@@ -65,8 +65,8 @@ func (p OutNode) send(w io.Writer, onError chan<- error) {
 	for {
 		select {
 		case msg := <-p.from:
-			data := msg.payload
-			debugLog.Printf("send %v bytes on %s from message with size %v\n", len(data), p.addr, msg.header.size)
+			data := msg.Payload
+			debugLog.Printf("send %v bytes on %s\n", len(data), p.addr)
 			buf := bytes.NewBuffer(data)
 			if _, err := io.Copy(w, buf); err != nil {
 				errorLog.Printf("could not write %v bytes on %s", len(data), p.addr)
@@ -76,7 +76,7 @@ func (p OutNode) send(w io.Writer, onError chan<- error) {
 				}
 				return
 			}
-			if msg.EOF() {
+			if msg.EOF {
 				err := io.EOF
 				p.err <- err
 				if onError != nil {
@@ -100,10 +100,11 @@ func (p OutNode) Wait(rw io.ReadWriter, onError chan<- error) {
 type InNode Node
 
 func (p InNode) receive(r io.Reader, onError chan<- error) {
+	decoder := gob.NewDecoder(r)
 	for {
 		msg := Message{}
-		n, err := msg.ReadFrom(r)
-		debugLog.Printf("read message of %v bytes on %s with err: %v\n", n, p.addr, err)
+		err := decoder.Decode(&msg)
+		debugLog.Printf("decode message of %v bytes on %s with err: %v\n", msg.Size(), p.addr, err)
 		if err != nil {
 			if err != io.EOF {
 				errorLog.Printf("received %v on %s", err, p.addr)
@@ -119,12 +120,13 @@ func (p InNode) receive(r io.Reader, onError chan<- error) {
 }
 
 func (p InNode) send(w io.Writer, onError chan<- error) {
+	encoder := gob.NewEncoder(w)
 	for {
 		select {
 		case msg := <-p.from:
 			debugLog.Printf("send message %v bytes on %s\n", msg.Size(), p.addr)
-			if n, err := msg.WriteTo(w); err != nil {
-				errorLog.Printf("could not write %v bytes on %s", n, p.addr)
+			if err := encoder.Encode(msg); err != nil {
+				errorLog.Printf("could not encode message on %s with error %v", p.addr, err)
 				p.from <- msg
 				if onError != nil {
 					onError <- err
