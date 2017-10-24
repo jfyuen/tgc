@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 // Connector opens 2 connections and forwards data from one to another
@@ -15,7 +17,6 @@ type Connector struct {
 }
 
 func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr string, isInNode bool) {
-	onError := make(chan error)
 	for {
 		var conn net.Conn
 		var err error
@@ -34,14 +35,16 @@ func connect(fromCh, toCh chan Message, interval int, config *tls.Config, addr s
 			msg = "securely " + msg
 		}
 		debugLog.Print(msg)
+		ctx, cancel := context.WithCancel(context.Background())
 		var p Pipe
 		if isInNode {
-			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
+			p = InNode{from: fromCh, to: toCh, cancel: cancel, addr: addr}
 		} else {
-			p = OutNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
+			p = OutNode{from: fromCh, to: toCh, cancel: cancel, addr: addr}
 		}
-		p.Wait(conn, onError)
-		<-onError
+
+		p.Wait(ctx, conn)
+		<-ctx.Done()
 		conn.Close()
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"strings"
+
+	"golang.org/x/net/context"
 )
 
 // Listener will listen on 2 ports and forward data from one to another
@@ -17,20 +19,20 @@ type Listener struct {
 func waitForConn(ln net.Listener, fromCh, toCh chan Message, isInNode bool) {
 	addr := ln.Addr().String()
 	for {
-		onError := make(chan error)
+		ctx, cancel := context.WithCancel(context.Background())
 		var p Pipe
 		if isInNode {
-			p = InNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: addr}
+			p = InNode{from: fromCh, to: toCh, cancel: cancel, addr: addr}
 		} else {
-			p = OutNode{from: fromCh, to: toCh, err: make(chan error, 1), addr: ln.Addr().String()}
+			p = OutNode{from: fromCh, to: toCh, cancel: cancel, addr: ln.Addr().String()}
 		}
 		conn, err := ln.Accept()
 		if err != nil {
 			errorLog.Printf("accept failed: %s\n", err)
 		} else {
 			debugLog.Printf("accepted new connection on %s\n", addr)
-			p.Wait(conn, onError)
-			<-onError
+			p.Wait(ctx, conn)
+			<-ctx.Done()
 			conn.Close()
 		}
 	}

@@ -4,33 +4,35 @@ import (
 	"bytes"
 	"encoding/gob"
 	"io"
+
+	"golang.org/x/net/context"
 )
 
 // Pipe reads and writes on a connection, results are sent over channels
 type Pipe interface {
-	Wait(rw io.ReadWriter, onError chan<- error)
-	receive(r io.Reader, onError chan<- error)
-	send(w io.Writer, onError chan<- error)
+	Wait(ctx context.Context, rw io.ReadWriter)
+	receive(ctx context.Context, r io.Reader)
+	send(ctx context.Context, w io.Writer)
 }
 
 // Node represents a Pipe connected to an inside or outside service
 type Node struct {
-	from, to chan Message // In/Out messages
-	err      chan error   // Notify the other side of the channel that an error occured
-	addr     string       // Where the Node is connected
+	from, to chan Message       // In/Out messages
+	addr     string             // Where the Node is connected
+	cancel   context.CancelFunc // Cancel the connections, linked to the Context
 }
 
 // OutNode represents a Pipe connected to an outside service
 type OutNode Node
 
-func (p OutNode) receive(r io.Reader, onError chan<- error) {
+func (p OutNode) receive(ctx context.Context, r io.Reader) {
 	b := make([]byte, 4096)
 	lastMessageEmptyEOF := true
 	for {
 		n, err := r.Read(b)
 		if err != nil {
 			select {
-			case <-p.err:
+			case <-ctx.Done():
 				return
 			default:
 				break
@@ -46,10 +48,7 @@ func (p OutNode) receive(r io.Reader, onError chan<- error) {
 				lastMessageEmptyEOF = true
 				p.to <- msg
 			}
-			p.err <- err
-			if onError != nil {
-				onError <- err
-			}
+			p.cancel()
 			return
 		}
 		if n > 0 {
@@ -61,7 +60,7 @@ func (p OutNode) receive(r io.Reader, onError chan<- error) {
 	}
 }
 
-func (p OutNode) send(w io.Writer, onError chan<- error) {
+func (p OutNode) send(ctx context.Context, w io.Writer) {
 	for {
 		select {
 		case msg := <-p.from:
@@ -70,36 +69,29 @@ func (p OutNode) send(w io.Writer, onError chan<- error) {
 			buf := bytes.NewBuffer(data)
 			if _, err := io.Copy(w, buf); err != nil {
 				errorLog.Printf("could not write %v bytes on %s", len(data), p.addr)
-				p.err <- err
-				if onError != nil {
-					onError <- err
-				}
+				p.cancel()
 				return
 			}
 			if msg.EOF {
-				err := io.EOF
-				p.err <- err
-				if onError != nil {
-					onError <- err
-				}
+				p.cancel()
 				return
 			}
-		case <-p.err:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
 // Wait will read data on connection and write back results
-func (p OutNode) Wait(rw io.ReadWriter, onError chan<- error) {
-	go p.receive(rw, onError)
-	go p.send(rw, onError)
+func (p OutNode) Wait(ctx context.Context, rw io.ReadWriter) {
+	go p.receive(ctx, rw)
+	go p.send(ctx, rw)
 }
 
 // InNode represents a Pipe connected to another InNode, with custom messages
 type InNode Node
 
-func (p InNode) receive(r io.Reader, onError chan<- error) {
+func (p InNode) receive(ctx context.Context, r io.Reader) {
 	decoder := gob.NewDecoder(r)
 	for {
 		msg := Message{}
@@ -109,17 +101,14 @@ func (p InNode) receive(r io.Reader, onError chan<- error) {
 			if err != io.EOF {
 				errorLog.Printf("received %v on %s", err, p.addr)
 			}
-			p.err <- err
-			if onError != nil {
-				onError <- err
-			}
+			p.cancel()
 			return
 		}
 		p.to <- msg
 	}
 }
 
-func (p InNode) send(w io.Writer, onError chan<- error) {
+func (p InNode) send(ctx context.Context, w io.Writer) {
 	encoder := gob.NewEncoder(w)
 	for {
 		select {
@@ -128,19 +117,16 @@ func (p InNode) send(w io.Writer, onError chan<- error) {
 			if err := encoder.Encode(msg); err != nil {
 				errorLog.Printf("could not encode message on %s with error %v", p.addr, err)
 				p.from <- msg
-				if onError != nil {
-					onError <- err
-				}
 				return
 			}
-		case <-p.err:
+		case <-ctx.Done():
 			return
 		}
 	}
 }
 
 // Wait will read data on connection and write back results
-func (p InNode) Wait(rw io.ReadWriter, onError chan<- error) {
-	go p.receive(rw, onError)
-	go p.send(rw, onError)
+func (p InNode) Wait(ctx context.Context, rw io.ReadWriter) {
+	go p.receive(ctx, rw)
+	go p.send(ctx, rw)
 }
