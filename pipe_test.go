@@ -3,11 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
+	"io"
 	"testing"
 	"time"
 )
-
-// TODO: Sleeping/Waiting for tests is ugly, find a nice way to Read/Write at the good time
 
 func TestPipeReceive(t *testing.T) {
 	fromCh := make(chan Message)
@@ -63,21 +62,24 @@ func TestInOutNode(t *testing.T) {
 	toCh := make(chan Message)
 	outErrCh := make(chan error)
 	pOut := OutNode{from: fromCh, to: toCh, err: make(chan error), addr: "out_conn"}
-	outRW := bytes.Buffer{}
-	go pOut.send(&outRW, outErrCh)
+	inRead, inWrite := io.Pipe()   // Inside socket, receiving messages
+	outRead, outWrite := io.Pipe() // Outside socket, forwarding clear text
+	go pOut.send(outWrite, outErrCh)
 
 	inErrCh := make(chan error)
 	pIn := InNode{from: toCh, to: fromCh, err: make(chan error), addr: "in_conn"}
-	inRW := bytes.Buffer{}
+	go pIn.receive(inRead, inErrCh)
 	msg := Message{Payload: []byte("hello"), EOF: true}
-	encoder := gob.NewEncoder(&inRW)
+	encoder := gob.NewEncoder(inWrite)
 	if err := encoder.Encode(msg); err != nil {
 		t.Fatalf("failed encoding message with %v", err)
 	}
-	pIn.Wait(&inRW, inErrCh)
-	time.Sleep(time.Millisecond * 100)
-	b := outRW.Bytes()
-	if !bytes.Equal(b, msg.Payload) {
-		t.Errorf("sent message %v and received message %v are different", msg.Payload, b)
+	buf := make([]byte, 10, 10)
+	n, err := outRead.Read(buf)
+	if err != nil {
+		t.Fatalf("failed reading from out node with %v", err)
+	}
+	if !bytes.Equal(buf[:n], msg.Payload) {
+		t.Errorf("sent message %v and received message %v are different", msg.Payload, buf)
 	}
 }
