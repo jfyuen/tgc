@@ -1,12 +1,11 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 // Connector opens 2 connections and forwards data from one to another

@@ -2,10 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"io"
-
-	"golang.org/x/net/context"
 )
 
 // Pipe reads and writes on a connection, results are sent over channels

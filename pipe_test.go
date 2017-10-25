@@ -2,12 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"io"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 func TestPipeReceive(t *testing.T) {

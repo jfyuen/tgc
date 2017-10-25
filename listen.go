@@ -1,13 +1,12 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
 	"strings"
-
-	"golang.org/x/net/context"
 )
 
 // Listener will listen on 2 ports and forward data from one to another
