@@ -28,6 +28,7 @@ func parseArgs() (*Listener, *Connector, error) {
 	connectArgs.StringVar(&connector.src, "s", "", "the host and port of the local server")
 	connectArgs.StringVar(&connector.dst, "c", "", "the host and port of the Listen/Listen server")
 	connectArgs.IntVar(&connector.interval, "i", 5, "interval when (re)connecting to either host in seconds, must be positive")
+	connectArgs.BoolVar(&connector.reconnect, "r", false, "automatically reconnect to the local server, if not specified a connection is made only when data are received from the remote node")
 	connectArgs.BoolVar(&logDebugConnect, "d", false, "activate debug logs")
 
 	clientCert := TLSCert{}
