@@ -15,12 +15,13 @@ func TestPipeReceive(t *testing.T) {
 	delay := time.Duration(100) * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), delay)
 	p := OutNode{Node: Node{from: fromCh, to: toCh, cancel: cancel, addr: "test_conn"}}
-
+  
 	var b bytes.Buffer
 	go p.receive(ctx, &b)
 	hello := []byte("hello")
 	_, err := b.Write(hello)
 	if err != nil {
+		cancel()
 		t.Fatal(err)
 	}
 
