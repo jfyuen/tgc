@@ -14,7 +14,7 @@ func TestPipeReceive(t *testing.T) {
 	toCh := make(chan Message)
 	delay := time.Duration(100) * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), delay)
-	p := OutNode{from: fromCh, to: toCh, cancel: cancel, addr: "test_conn"}
+	p := OutNode{Node: Node{from: fromCh, to: toCh, cancel: cancel, addr: "test_conn"}}
 
 	var b bytes.Buffer
 	go p.receive(ctx, &b)
@@ -42,7 +42,7 @@ func TestPipeSend(t *testing.T) {
 	fromCh := make(chan Message)
 	toCh := make(chan Message)
 	ctx, cancel := context.WithCancel(context.Background())
-	p := OutNode{from: fromCh, to: toCh, cancel: cancel, addr: "test_conn"}
+	p := OutNode{Node: Node{from: fromCh, to: toCh, cancel: cancel, addr: "test_conn"}}
 
 	b := bytes.Buffer{}
 	go p.send(ctx, &b)
@@ -62,7 +62,7 @@ func TestInOutNode(t *testing.T) {
 	fromCh := make(chan Message)
 	toCh := make(chan Message)
 	outCtx, outCancel := context.WithCancel(context.Background())
-	pOut := OutNode{from: fromCh, to: toCh, cancel: outCancel, addr: "out_conn"}
+	pOut := OutNode{Node: Node{from: fromCh, to: toCh, cancel: outCancel, addr: "out_conn"}}
 	inRead, inWrite := io.Pipe()   // Inside socket, receiving messages
 	outRead, outWrite := io.Pipe() // Outside socket, forwarding clear text
 	go pOut.send(outCtx, outWrite)

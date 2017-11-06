@@ -22,7 +22,10 @@ type Node struct {
 }
 
 // OutNode represents a Pipe connected to an outside service
-type OutNode Node
+type OutNode struct {
+	Node
+	firstMessage *Message
+}
 
 func (p OutNode) receive(ctx context.Context, r io.Reader) {
 	b := make([]byte, 4096)
@@ -59,20 +62,32 @@ func (p OutNode) receive(ctx context.Context, r io.Reader) {
 	}
 }
 
+func (p OutNode) sendData(ctx context.Context, w io.Writer, msg Message) error {
+	data := msg.Payload
+	debugLog.Printf("send %v bytes on %s\n", len(data), p.addr)
+	buf := bytes.NewBuffer(data)
+	if _, err := io.Copy(w, buf); err != nil {
+		errorLog.Printf("could not write %v bytes on %s", len(data), p.addr)
+		p.cancel()
+		return err
+	}
+	if msg.EOF {
+		p.cancel()
+		return io.EOF
+	}
+	return nil
+}
+
 func (p OutNode) send(ctx context.Context, w io.Writer) {
+	if p.firstMessage != nil {
+		if err := p.sendData(ctx, w, *p.firstMessage); err != nil {
+			return
+		}
+	}
 	for {
 		select {
 		case msg := <-p.from:
-			data := msg.Payload
-			debugLog.Printf("send %v bytes on %s\n", len(data), p.addr)
-			buf := bytes.NewBuffer(data)
-			if _, err := io.Copy(w, buf); err != nil {
-				errorLog.Printf("could not write %v bytes on %s", len(data), p.addr)
-				p.cancel()
-				return
-			}
-			if msg.EOF {
-				p.cancel()
+			if err := p.sendData(ctx, w, msg); err != nil {
 				return
 			}
 		case <-ctx.Done():

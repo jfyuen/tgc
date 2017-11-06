@@ -19,12 +19,10 @@ type Connector struct {
 func (c Connector) connectOutNode(fromCh, toCh chan Message) {
 	addr := c.src
 	for {
-		bufCh := make(chan Message)
+		var msg *Message
 		if !c.reconnect {
-			msg := <-fromCh // block until data are received from the remote node
-			go func(m Message) {
-				bufCh <- msg
-			}(msg)
+			m := <-fromCh // block until data are received from the remote node
+			msg = &m
 		}
 		conn, err := net.Dial("tcp", addr)
 
@@ -34,22 +32,10 @@ func (c Connector) connectOutNode(fromCh, toCh chan Message) {
 			continue
 		}
 
-		msg := fmt.Sprintf("connected to %s\n", addr)
-		debugLog.Print(msg)
+		debugLog.Print(fmt.Sprintf("connected to %s\n", addr))
 		ctx, cancel := context.WithCancel(context.Background())
-
-		// Use bufCh as a buffer to block automatically reconnecting
-		go func(ctx context.Context) {
-			for {
-				select {
-				case m := <-fromCh:
-					bufCh <- m
-				case <-ctx.Done():
-					return
-				}
-			}
-		}(ctx)
-		p := OutNode{from: bufCh, to: toCh, cancel: cancel, addr: addr}
+		n := Node{from: fromCh, to: toCh, cancel: cancel, addr: addr}
+		p := OutNode{Node: n, firstMessage: msg}
 
 		p.Wait(ctx, conn)
 		<-ctx.Done()

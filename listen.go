@@ -23,7 +23,8 @@ func waitForConn(ln net.Listener, fromCh, toCh chan Message, isInNode bool) {
 		if isInNode {
 			p = InNode{from: fromCh, to: toCh, cancel: cancel, addr: addr}
 		} else {
-			p = OutNode{from: fromCh, to: toCh, cancel: cancel, addr: ln.Addr().String()}
+			n := Node{from: fromCh, to: toCh, cancel: cancel, addr: ln.Addr().String()}
+			p = OutNode{Node: n}
 		}
 		conn, err := ln.Accept()
 		if err != nil {
