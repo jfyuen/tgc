@@ -12,10 +12,10 @@ import (
 func TestPipeReceive(t *testing.T) {
 	fromCh := make(chan Message)
 	toCh := make(chan Message)
-	delay := time.Duration(100) * time.Millisecond
+	delay := time.Duration(50) * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), delay)
 	p := OutNode{Node: Node{from: fromCh, to: toCh, cancel: cancel, addr: "test_conn"}}
-  
+
 	var b bytes.Buffer
 	go p.receive(ctx, &b)
 	hello := []byte("hello")
