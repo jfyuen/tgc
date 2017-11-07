@@ -1,4 +1,4 @@
-# TCP Gender Changer
+# TCP Gender Changer [![Build Status](https://travis-ci.org/jfyuen/tgc.svg?branch=master)](https://travis-ci.org/jfyuen/tgc) [![Coverage Status](https://coveralls.io/repos/github/jfyuen/tgc/badge.svg?branch=master)](https://coveralls.io/github/jfyuen/tgc?branch=master)
 
 TCP Gender Changer is a small utility to connect/connect on a local service to a remote server using a listen/listen setup. 
 More information on [wikipedia](https://en.wikipedia.org/wiki/TCP_Gender_Changer).
