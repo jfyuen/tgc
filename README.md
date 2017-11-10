@@ -23,7 +23,7 @@ On the remote node on which you can connect to, run the listen/listen setup:
 $ tgc -L -q ${EXTERNAL_PORT} -p ${LOCAL_PORT}
 ```
 
-The remote node now has access to the local server on the LAN via `${LOCAL_PORT}`. A connection is initiated to the local server only when data are received from the remote server, unless the `-a` flag is specified to automatically (re)connect to the local server.
+The remote node now has access to the local server on the LAN via `${LOCAL_PORT}`. A connection is initiated to the local server only when data are received from the remote server, unless the `-r` flag is specified to automatically (re)connect to the local server.
 
 Additionally, a secure connection can be established between the Connect/Connect node and the Listen/Listen node by using the following options for both modes:
 - `ca`: CA of the connecting party, on the server side, provide the client CA; on the client side, provide the server CA. They can be the same CA
