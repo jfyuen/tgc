@@ -36,7 +36,7 @@ func (p OutNode) receive(ctx context.Context, r io.Reader) {
 		}
 		data := make([]byte, n)
 		copy(data, b[:n])
-		p.to <- Message{Payload: data, EOF: err == io.EOF}
+		p.to <- Message{Payload: data, EOF: err != nil}
 		debugLog.Printf("read %v bytes on %s with err: %v\n", n, p.addr, err)
 		if err != nil {
 			if err != io.EOF && ctx.Err() == nil {
