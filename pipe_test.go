@@ -17,13 +17,13 @@ func TestPipeReceive(t *testing.T) {
 	p := OutNode{Node: Node{from: fromCh, to: toCh, cancel: cancel, addr: "test_conn"}}
 
 	var b bytes.Buffer
-	go p.receive(ctx, &b)
 	hello := []byte("hello")
-	_, err := b.Write(hello)
+	_, err := b.Write(hello) // data race
 	if err != nil {
 		cancel()
 		t.Fatal(err)
 	}
+	go p.receive(ctx, &b) // data race
 
 	select {
 	case msg := <-toCh:
