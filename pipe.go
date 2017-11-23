@@ -29,35 +29,21 @@ type OutNode struct {
 
 func (p OutNode) receive(ctx context.Context, r io.Reader) {
 	b := make([]byte, 4096)
-	lastMessageEmptyEOF := true
 	for {
 		n, err := r.Read(b)
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				break
-			}
+		if n == 0 && ctx.Err() != nil {
+			return
 		}
+		data := make([]byte, n)
+		copy(data, b[:n])
+		p.to <- Message{Payload: data, EOF: err == io.EOF}
 		debugLog.Printf("read %v bytes on %s with err: %v\n", n, p.addr, err)
 		if err != nil {
-			if err != io.EOF {
+			if err != io.EOF && ctx.Err() == nil {
 				errorLog.Printf("received %v on %s", err, p.addr)
-			}
-			if !lastMessageEmptyEOF {
-				msg := Message{Payload: []byte{}, EOF: true}
-				lastMessageEmptyEOF = true
-				p.to <- msg
 			}
 			p.cancel()
 			return
-		}
-		if n > 0 {
-			data := make([]byte, n)
-			copy(data, b[:n])
-			p.to <- Message{Payload: data}
-			lastMessageEmptyEOF = false
 		}
 	}
 }
