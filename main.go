@@ -9,8 +9,8 @@ import (
 )
 
 // Loggers should be given as fields of struct and Pipe for better composability, but it is still ok like that
-var debugLog *log.Logger = log.New(ioutil.Discard, "", log.Ldate|log.Ltime)
-var errorLog *log.Logger = log.New(os.Stderr, "[ERROR] ", log.Ldate|log.Ltime)
+var debugLog = log.New(ioutil.Discard, "", log.Ldate|log.Ltime)
+var errorLog = log.New(os.Stderr, "[ERROR] ", log.Ldate|log.Ltime)
 
 func newDebugLog() *log.Logger {
 	return log.New(os.Stdout, "[DEBUG] ", log.Ldate|log.Ltime)

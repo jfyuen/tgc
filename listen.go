@@ -72,8 +72,5 @@ func (l Listener) Listen() error {
 	if err := listen(fromCh, toCh, nil, l.from, false); err != nil {
 		return err
 	}
-	if err := listen(toCh, fromCh, l.tlsConfig, l.to, true); err != nil {
-		return err
-	}
-	return nil
+	return listen(toCh, fromCh, l.tlsConfig, l.to, true)
 }
