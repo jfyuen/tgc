@@ -101,6 +101,7 @@ func (p InNode) receive(ctx context.Context, r io.Reader) {
 			if err != io.EOF {
 				errorLog.Printf("received %v on %s", err, p.addr)
 			}
+			disconnect(p.to)
 			p.cancel()
 			return
 		}
@@ -123,6 +124,10 @@ func (p InNode) send(ctx context.Context, w io.Writer) {
 			return
 		}
 	}
+}
+
+func disconnect(ch chan<- Message) {
+	ch <- Message{EOF: true}
 }
 
 // Wait will read data on connection and write back results

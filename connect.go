@@ -28,6 +28,7 @@ func (c Connector) connectOutNode(fromCh, toCh chan Message) {
 
 		if err != nil {
 			errorLog.Printf("cannot connect to %s: %v, retrying in %v seconds\n", addr, err, c.interval)
+			disconnect(toCh)
 			time.Sleep(time.Duration(c.interval) * time.Second)
 			continue
 		}
