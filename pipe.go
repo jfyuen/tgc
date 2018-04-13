@@ -116,7 +116,7 @@ func (p InNode) send(ctx context.Context, w io.Writer) {
 			debugLog.Printf("send message %v bytes on %s\n", msg.Size(), p.addr)
 			if err := encoder.Encode(msg); err != nil {
 				errorLog.Printf("could not encode message on %s with error %v", p.addr, err)
-				p.from <- msg
+				p.cancel()
 				return
 			}
 		case <-ctx.Done():
